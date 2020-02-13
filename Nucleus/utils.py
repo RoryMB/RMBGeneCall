@@ -53,13 +53,16 @@ class Genome(object):
         return self.__str__()
 
     def get_contig_by_id(self, cid):
+        # TODO: Delete this function once the contigs are stored in a dictionary
         for c in self.contigs:
             if c.cid == cid:
                 return c
         return None
 
-    def add_fasta(self, fastaFname):
-        contig2dna = read_fasta(fastaFname)
+    def add_fasta(self, fname):
+        """Extracts the sequences from a fasta file into the appropriate contigs."""
+
+        contig2dna = read_fasta(fname)
 
         for contigId, dna in contig2dna.items():
             c = self.get_contig_by_id(contigId)
@@ -68,8 +71,10 @@ class Genome(object):
                 self.contigs.append(c)
             c.dnaPos = dna
 
-    def add_gff(self, gffFname):
-        contig2features = read_gff(gffFname)
+    def add_gff(self, fname):
+        """Extracts the features from a .gff file into the appropriate contigs."""
+
+        contig2features = read_gff(fname)
 
         for contigId, features in contig2features.items():
             c = self.get_contig_by_id(contigId)
@@ -78,8 +83,10 @@ class Genome(object):
                 self.contigs.append(c)
             c.features.extend(features)
 
-    def add_bam(self, bamFname):
-        with pysam.AlignmentFile(bamFname, 'rb') as f:
+    def add_bam(self, fname):
+        """Reads .bam and .bam.bai files and computes an RNA-Seq pileup for the sequence."""
+
+        with pysam.AlignmentFile(fname, 'rb') as f:
             for contigId in sorted(f.references):
                 # contigIdx = int(contigId.split('con.')[-1])
                 # c = self.contigs[contigIdx-1]
@@ -97,10 +104,12 @@ class Genome(object):
 
     @property
     def gc(self):
+        """Calculates the average GC content of all contigs."""
+
         return sum(c.gc*len(c.dnaPos) for c in self.contigs) / sum(len(c.dnaPos) for c in self.contigs)
 
 class Contig(object):
-    """A Contig stores a sequence and features on that sequence."""
+    """A Contig stores a sequence and the features on that sequence."""
 
     def __init__(self, cid=None, genome=None):
         self.cid = cid
@@ -134,6 +143,8 @@ class Contig(object):
         return self.__str__()
 
     def annotate_coding(self):
+        """Create a label for each base pair denoting the coding frame, if any."""
+
         if not self.dna:
             raise AttributeError('Contig has no dna')
         if not self.features:
@@ -153,22 +164,27 @@ class Contig(object):
                     self.coding[i] = frame%3 - 3
 
     def find_orfs(self):
+        """Traverses the sequence finding all ORFs on both strands."""
+
         self._find_orfs(self.dnaPos, '+')
         self._find_orfs(self.dnaNeg, '-')
 
     def _find_orfs(self, dna, strand):
+        # Store all start codons, organized by frame
         naL = [[], [], []]
         for match in re.finditer(r'(?=[agt]tg)', dna):
             loc = match.start()
             frame = loc%3
             naL[frame].append(loc)
 
+        # Store all stop codons, organized by frame
         noL = [[0], [1], [2]]
         for match in re.finditer(r'(?=taa|tag|tga)', dna):
             loc = match.start()
             frame = loc%3
             noL[frame].append(loc+3)
 
+        # Find all collections of start codons in frame with stops (ORFs)
         for frame in range(3):
             j = -1
             for i in range(len(noL[frame])-1):
@@ -184,6 +200,7 @@ class Contig(object):
                         break
                     starts.append(naL[frame][j])
 
+                # Create an ORF if this section of dna has at least one in-frame start
                 if len(starts) > 0:
                     if strand == '+':
                         orf = ORF(front, back, starts, strand, frame)
@@ -192,16 +209,20 @@ class Contig(object):
                     self.orfs.append(orf)
 
     def mark_coding_orfs(self, realFeatures):
+        """Records which ORFs contain an in-frame feature, and where that feature starts."""
+
         orfsPos = {o.right:o for o in self.orfs if o.strand == '+'}
         orfsNeg = {o.left:o for o in self.orfs if o.strand == '-'}
 
         featuresPos = [f for f in realFeatures if f.strand == '+']
         featuresNeg = [f for f in realFeatures if f.strand == '-']
 
+        # Find all features sharing a stop (right) with an ORF on the + strand
         for feature in featuresPos:
             if feature.right in orfsPos:
                 orfsPos[feature.right].realStart = feature.left
 
+        # Find all features sharing a stop (left) with an ORF on the - strand
         for feature in featuresNeg:
             if feature.left in orfsNeg:
                 orfsNeg[feature.left].realStart = feature.right
@@ -276,6 +297,8 @@ class Feature(object):
         return self.__str__()
 
     def encode_gff(self):
+        """Returns a .gff styled line corresponding to this feature."""
+
         return '\t'.join([
             self.contig,
             self.source,
