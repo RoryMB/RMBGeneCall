@@ -7,6 +7,11 @@ def get_arguments():
 
     parser = argparse.ArgumentParser("CS-1 evaluation std arguments")
 
+    parser.add_argument('--gpu',
+                        default='-1',
+                        type=str,
+                        help='Which GPU to use (if not on Cerebras)')
+
     parser.add_argument('--model_dir',
                         default='./model_dir',
                         type=str,

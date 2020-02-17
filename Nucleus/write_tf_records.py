@@ -40,6 +40,10 @@ def convert_to_tfr(x1, x2, x3, x4, x5, y1, y2, path):
             x5_list = tf.train.FloatList(value=x5_curr)
             x5_feature = tf.train.Feature(float_list=x5_list)
 
+            # TODO: All values are eventually cast as tf.float32 (input_fn.py)
+            # Save them that way to begin with?
+            # Do they need to be cast in the first place?
+
             # Is Coding
             y1_curr = [y1[i]] # Scalar value
             y1_list = tf.train.Int64List(value=y1_curr)

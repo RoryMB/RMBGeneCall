@@ -40,6 +40,8 @@ def qualify_path(directory):
 def main(args):
     """Estimator main function."""
 
+    os.environ['CUDA_VISIBLE_DEVICES'] = arguments.gpu
+
     file_prefix = args.inpfx
     if file_prefix:
         file_prefix = file_prefix + '-'
@@ -57,7 +59,7 @@ def main(args):
 
     params['shuffle_buffer'] = SHUFFLE_BUFFER
     params['dropout'] = DROPOUT
-    params['input_sizes'] = (183, 1)
+    params['input_sizes'] = (183, 1, 1, 1, 1, 1, 1)
 
     evaluating = args.eval
     training = args.train
@@ -101,5 +103,4 @@ def main(args):
 
 if __name__ == '__main__':
     arguments = get_arguments()
-    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     main(arguments)

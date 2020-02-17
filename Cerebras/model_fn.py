@@ -20,13 +20,11 @@ def model_fn(features, labels, mode, params):
     eval_metric_ops = None
 
     # Living in the past?
-    # get_global_step_fn = tf.compat.v1.train.get_global_step
+    get_global_step_fn = tf.compat.v1.train.get_global_step
     get_collection_fn = tf.compat.v1.get_collection
     set_verbosity_fn = tf.compat.v1.logging.set_verbosity
-    # optimizer_fn = tf.compat.v1.train.MomentumOptimizer
     optimizer_fn = tf.compat.v1.train.AdamOptimizer
     accuracy_fn = tf.compat.v1.metrics.accuracy
-    # loss_fn = tf.compat.v1.losses.sparse_softmax_cross_entropy
     loss_fn = tf.compat.v1.keras.losses.binary_crossentropy
 
     logging_INFO = tf.compat.v1.logging.INFO
@@ -37,27 +35,21 @@ def model_fn(features, labels, mode, params):
     is_evaluate = (mode == tf.estimator.ModeKeys.EVAL)
     is_predict = (mode == tf.estimator.ModeKeys.PREDICT)
 
-    # No obvious transformations needed
-    inputs = features
-    keras_model = build_model(params, tensor=inputs)
-    logits = keras_model.output
-    # Why axis = 1
-    predictions = tf.argmax(logits, 1)
+    keras_model = build_model(params, inputs=features)
+    outputs = keras_model.output
+    predictions = tf.argmax(outputs, -1)
 
     # Label and class weights are concatenated, decouple
-    # weights = labels[:,1]
-    float_labels = labels[:,0]
-    labels = tf.cast(float_labels, dtype=tf.int64)
+    labels = tf.cast(labels, dtype=tf.int64)
 
     if is_training or is_evaluate:
-        global_step = tf.train.get_or_create_global_step()
-        # loss = loss_fn(labels=labels, logits=logits)
-        loss = loss_fn(y_true=labels, y_pred=tf.squeeze(logits))
+        global_step = tf.compat.v1.train.get_or_create_global_step()
+        loss = tf.compat.v1.keras.backend.sum(loss_fn(y_true=tf.squeeze(labels), y_pred=tf.squeeze(outputs)))
         hook_list = []
 
         if not XLA:
             accuracy = accuracy_fn(
-                labels=labels,
+                labels=tf.squeeze(labels),
                 predictions=predictions,
                 name='accuracy_op')
 
@@ -68,7 +60,9 @@ def model_fn(features, labels, mode, params):
             set_verbosity_fn(logging_INFO)
             logging_hook = tf.estimator.LoggingTensorHook(
                 {"loss": loss, "accuracy": accuracy[1]},
-                every_n_iter = 1000) # every_n_secs = 60)
+                # every_n_iter=1000,
+                every_n_secs=60,
+            )
 
             hook_list.append(logging_hook)
 
@@ -78,7 +72,7 @@ def model_fn(features, labels, mode, params):
             with tf.control_dependencies(update_ops):
                 train_op = optimizer.minimize(
                     loss,
-                    global_step=tf.compat.v1.train.get_global_step())
+                    global_step=get_global_step_fn())
 
             training_hook = hooks.TrainingHook(params, loss)
             hook_list.append(training_hook)

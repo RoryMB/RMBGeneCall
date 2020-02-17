@@ -22,7 +22,7 @@ class TrainingHook(tf.estimator.SessionRunHook):
     def before_run(self, run_context):
         # print(self._tag, "before_run()")
         self._step += 1
-        return tf.train.SessionRunArgs(self.tensor)
+        return tf.estimator.SessionRunArgs(self.tensor)
 
     def after_run(self, run_context, run_values):
         if self._step and self._step % self.log_frequency == 0:

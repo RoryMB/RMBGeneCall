@@ -1,5 +1,9 @@
+# Data files
+*.tfrecords
 model*
+!model*.py
 genomes*
+!genomes*.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

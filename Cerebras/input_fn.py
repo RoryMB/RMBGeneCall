@@ -8,7 +8,7 @@ def input_fn(data_dir, batch_size, is_training=None, params=None):
     epochs = params['epochs']
     file_prefix = params['file_prefix']
     shuffle_buffer = params['shuffle_buffer']
-    data_sz, label_sz = params['input_sizes']
+    data_sz = params['input_sizes']
 
     if is_training:
         partition = 'train'
@@ -22,19 +22,26 @@ def input_fn(data_dir, batch_size, is_training=None, params=None):
     def _parse_record_fn(raw_record):
         """Decode raw TFRecord into feature and label components."""
         feature_map = {
-            'data':  tf.io.FixedLenFeature([data_sz], dtype=tf.float32),
-            # 'class_weights': tf.io.FixedLenFeature([1], dtype=tf.float32),
-            'label': tf.io.FixedLenFeature([label_sz], dtype=tf.int64)
+            'sequence': tf.io.FixedLenFeature([data_sz[0]], dtype=tf.float32),
+            'geneLength': tf.io.FixedLenFeature([data_sz[1]], dtype=tf.float32),
+            'orfLength': tf.io.FixedLenFeature([data_sz[2]], dtype=tf.float32),
+            'genomeGC': tf.io.FixedLenFeature([data_sz[3]], dtype=tf.float32),
+            'contigGC': tf.io.FixedLenFeature([data_sz[4]], dtype=tf.float32),
+            'isCoding': tf.io.FixedLenFeature([data_sz[5]], dtype=tf.int64),
+            'isCorrect': tf.io.FixedLenFeature([data_sz[6]], dtype=tf.int64),
         }
 
         record_features = tf.io.parse_single_example(raw_record, feature_map)
-        data = record_features['data']
-        label = record_features['label']
-        # weights = record_features['class_weights']
-        float_label = tf.cast(label, dtype=tf.float32) # concat reqs like dtypes
-        # label_plus_weight = tf.concat([float_label, weights], 0)
-        # return data, label_plus_weight # return data, label
-        return data, float_label # return data, label
+
+        sequence = record_features['sequence']
+        geneLength = record_features['geneLength']
+        orfLength = record_features['orfLength']
+        genomeGC = record_features['genomeGC']
+        contigGC = record_features['contigGC']
+        isCoding = tf.cast(record_features['isCoding'], dtype=tf.float32)
+        isCorrect = tf.cast(record_features['isCorrect'], dtype=tf.float32)
+
+        return (sequence, geneLength, orfLength, genomeGC, contigGC), (isCoding, isCorrect)
 
     return process_record_dataset(dataset, is_training, batch_size, shuffle_buffer, _parse_record_fn, num_epochs=epochs)
 
@@ -47,7 +54,7 @@ def process_record_dataset(dataset, is_training, batch_size, shuffle_buffer, par
         dataset = dataset.repeat(num_epochs)
 
     dataset = dataset.apply(
-        tf.contrib.data.map_and_batch(
+        tf.data.experimental.map_and_batch(
             lambda raw_record: parse_record_fn(raw_record),
             batch_size=batch_size,
             num_parallel_batches=1,

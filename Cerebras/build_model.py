@@ -3,18 +3,22 @@
 from tensorflow.keras.layers import Input, Dense, Dropout, Activation, Embedding, Conv1D, Add, Flatten
 from tensorflow.keras.models import Model
 
-def build_model(params, tensor=None):
+def build_model(params, inputs=None):
     """Build a Keras classification NN."""
 
     dropout = params['dropout']
 
     # TODO: More inputs (gc, etc), another output (in CDS)
-    inp = Input(tensor=tensor)
+    in1 = Input(tensor=inputs[0])
+    in2 = Input(tensor=inputs[1])
+    in3 = Input(tensor=inputs[2])
+    in4 = Input(tensor=inputs[3])
+    in5 = Input(tensor=inputs[4])
 
     # There are 18 possible nucleotides (including ambiguity chars)
     # The input sequence is 183 bp
     # TODO: Pass this in params?
-    x = Embedding(18, 4, input_length=183)(inp)
+    x = Embedding(18, 4, input_length=183)(in1)
 
     x = Conv1D(256, kernel_size=3, strides=3, kernel_initializer='he_normal')(x)
     x = Activation('relu')(x)
@@ -47,10 +51,11 @@ def build_model(params, tensor=None):
     x = Dense(32, kernel_initializer='he_normal')(x)
     x = Activation('relu')(x)
 
-    out = Dense(1, activation='sigmoid', kernel_initializer='he_normal')(x)
+    out1 = Dense(1, activation='sigmoid', kernel_initializer='he_normal')(x)
+    out2 = Dense(1, activation='sigmoid', kernel_initializer='he_normal')(x)
 
-    inputs = inp
-    outputs = out
+    inputs = [in1, in2, in3, in4, in5]
+    outputs = [out1, out2]
 
     model = Model(inputs=inputs, outputs=outputs)
     model.summary()
