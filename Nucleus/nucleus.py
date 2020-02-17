@@ -24,7 +24,7 @@ from utils import *
 
 def build_dataset(args):
     print('Loading genomes...')
-    genomes = read_genomes_from_list(genomeDir='proks/', genomeList=os.path.join(args.dataDirectory, 'genomes_train.tbl'))
+    genomes = read_genomes_from_list(genomeDir='genomes_proks/', genomeList=os.path.join(args.dataDirectory, 'genomes_train.tbl'))
 
     print('Analyzing orfs...')
     for genome in genomes:
@@ -245,7 +245,7 @@ def train_start(args):
 
 def test(args):
     print('Loading genomes...')
-    genomes = read_genomes_from_list(genomeDir='proks/', genomeList=os.path.join(args.dataDirectory, 'genomes_test.tbl'))
+    genomes = read_genomes_from_list(genomeDir='genomes_proks/', genomeList=os.path.join(args.dataDirectory, 'genomes_test.tbl'))
 
     print('Analyzing orfs...')
     for genome in genomes:
