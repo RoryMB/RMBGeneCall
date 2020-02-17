@@ -29,7 +29,7 @@ def logger(prefix):
     ch.setLevel(logging.INFO)
 
     logging.getLogger().addHandler(fh)
-    logging.getLogger().addHandler(ch)
+    # logging.getLogger().addHandler(ch)
     return logging.getLogger(__name__)
 
 def qualify_path(directory):

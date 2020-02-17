@@ -43,7 +43,7 @@ def get_arguments():
                         help='Epochs')
 
     parser.add_argument('--batch_size',
-                        default=32,
+                        default=4096,
                         type=int,
                         help='Batch size')
 

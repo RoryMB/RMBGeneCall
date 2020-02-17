@@ -45,6 +45,8 @@ def model_fn(features, labels, mode, params):
     if is_training or is_evaluate:
         global_step = tf.compat.v1.train.get_or_create_global_step()
         loss = tf.compat.v1.keras.backend.sum(loss_fn(y_true=tf.squeeze(labels), y_pred=tf.squeeze(outputs)))
+        confusion_matrix_coding = tf.math.confusion_matrix(tf.squeeze(labels)[0], predictions[0])
+        confusion_matrix_correct = tf.math.confusion_matrix(tf.squeeze(labels)[1], predictions[1])
         hook_list = []
 
         if not XLA:
@@ -59,9 +61,9 @@ def model_fn(features, labels, mode, params):
 
             set_verbosity_fn(logging_INFO)
             logging_hook = tf.estimator.LoggingTensorHook(
-                {"loss": loss, "accuracy": accuracy[1]},
+                {"loss": loss, "accuracy": accuracy[1], "\ncoding": confusion_matrix_coding, "\ncorrect": confusion_matrix_correct},
                 # every_n_iter=1000,
-                every_n_secs=60,
+                every_n_secs=5,
             )
 
             hook_list.append(logging_hook)
