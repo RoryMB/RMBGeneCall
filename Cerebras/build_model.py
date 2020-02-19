@@ -9,11 +9,11 @@ def build_model(params, inputs=None):
     dropout = params['dropout']
 
     # TODO: More inputs (gc, etc), another output (in CDS)
-    in1 = Input(tensor=inputs[0])
-    in2 = Input(tensor=inputs[1])
-    in3 = Input(tensor=inputs[2])
-    in4 = Input(tensor=inputs[3])
-    in5 = Input(tensor=inputs[4])
+    in1 = Input(tensor=inputs['sequence'])
+    in2 = Input(tensor=inputs['geneLength'])
+    in3 = Input(tensor=inputs['orfLength'])
+    in4 = Input(tensor=inputs['genomeGC'])
+    in5 = Input(tensor=inputs['contigGC'])
 
     # There are 18 possible nucleotides (including ambiguity chars)
     # The input sequence is 183 bp

@@ -41,8 +41,8 @@ def input_fn(data_dir, batch_size, is_training=None, params=None):
         isCoding = tf.cast(record_features['isCoding'], dtype=tf.float32)
         isCorrect = tf.cast(record_features['isCorrect'], dtype=tf.float32)
 
-        # return {'sequence':sequence, 'geneLength':geneLength, 'orfLength':orfLength, 'genomeGC':genomeGC, 'contigGC':contigGC}, (isCoding, isCorrect)
-        return (sequence, geneLength, orfLength, genomeGC, contigGC), (isCoding, isCorrect)
+        return {'sequence':sequence, 'geneLength':geneLength, 'orfLength':orfLength, 'genomeGC':genomeGC, 'contigGC':contigGC}, (isCoding, isCorrect)
+        # return (sequence, geneLength, orfLength, genomeGC, contigGC), (isCoding, isCorrect)
 
     return process_record_dataset(dataset, is_training, batch_size, shuffle_buffer, _parse_record_fn, num_epochs=epochs)
 
