@@ -22,20 +22,21 @@ def get_arguments():
                         type=str,
                         help='TensorFlow data_dir')
 
-    parser.add_argument('--train',
-                        default=False,
-                        action='store_true',
-                        help='Train the model')
+    parser.add_argument('--mode',
+                        choices=[
+                            'train',
+                            'eval',
+                            'predict',
+                            'validate_only',        # CS-1 only
+                            'compile_only'          # CS-1 only
+                        ],
+                        nargs='+',
+                        required=True,
+                        help='execution mode')
 
-    parser.add_argument('--eval',
-                        default=False,
-                        action='store_true',
-                        help='Evaluate the model')
-
-    parser.add_argument('--xla',
-                        default=False,
-                        action='store_true',
-                        help='Test for XLA compatibility')
+    parser.add_argument('--cs_ip',
+                        default=None,
+                        help='CS-1 IP address, default is None')
 
     parser.add_argument('--epochs',
                         default=1,

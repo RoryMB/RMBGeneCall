@@ -8,7 +8,7 @@ from build_model import build_model
 
 def model_fn(features, labels, mode, params):
     """Describe the model to the TensorFlow estimator."""
-    XLA = params['xla']
+    cerebras = params['cerebras']
     LR = params['learning_rate']
 
     # From Cerebras MNIST hybrid_model.py
@@ -40,23 +40,27 @@ def model_fn(features, labels, mode, params):
     predictions = tf.argmax(outputs, -1)
 
     # Label and class weights are concatenated, decouple
+    print(labels)
     labels = tf.cast(labels, dtype=tf.int64)
 
     if is_training or is_evaluate:
         global_step = tf.compat.v1.train.get_or_create_global_step()
+        print('RMBDEBUG', '*'*50)
+        print(labels, tf.squeeze(labels).shape)
+        print(outputs, tf.squeeze(outputs).shape)
+        print('RMBDEBUG', '*'*50)
         loss = tf.compat.v1.keras.backend.sum(loss_fn(y_true=tf.squeeze(labels), y_pred=tf.squeeze(outputs)))
         confusion_matrix_coding = tf.math.confusion_matrix(tf.squeeze(labels)[0], predictions[0])
         confusion_matrix_correct = tf.math.confusion_matrix(tf.squeeze(labels)[1], predictions[1])
         hook_list = []
 
-        if not XLA:
+        if not cerebras:
             accuracy = accuracy_fn(
                 labels=tf.squeeze(labels),
                 predictions=predictions,
                 name='accuracy_op')
 
             eval_metric_ops = dict(accuracy=accuracy)
-
             summary_scalar('accuracy', accuracy[1])
 
             set_verbosity_fn(logging_INFO)
