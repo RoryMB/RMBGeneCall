@@ -9,7 +9,7 @@ import tensorflow as tf
 from sklearn.model_selection import train_test_split
 
 # def convert_to_tfr(x1, y2, path):
-def convert_to_tfr(x1, x2, x3, x4, x5, y1, y2, path):
+def convert_to_tfr(x1, x2, x3, x4, x5, y1, path):
     """Write TFRecords from memory-resident features and label."""
 
     print("writing to {}".format(path))
@@ -45,25 +45,17 @@ def convert_to_tfr(x1, x2, x3, x4, x5, y1, y2, path):
             # Do they need to be cast in the first place?
 
             # Is Coding
-            y1_curr = [y1[i]] # Scalar value
+            y1_curr = y1[i] # List
             y1_list = tf.train.Int64List(value=y1_curr)
             y1_feature = tf.train.Feature(int64_list=y1_list)
 
-            # Is Correct
-            y2_curr = [y2[i]] # Scalar value
-            y2_list = tf.train.Int64List(value=y2_curr)
-            y2_feature = tf.train.Feature(int64_list=y2_list)
-
             feature_dict = {
-                # 'data': x1_feature,
-                # 'label': y2_feature,
                 'sequence': x1_feature,
                 'geneLength': x2_feature,
                 'orfLength': x3_feature,
                 'genomeGC': x4_feature,
                 'contigGC': x5_feature,
-                'isCoding': y1_feature,
-                'isCorrect': y2_feature,
+                'labels': y1_feature,
             }
             feature_set = tf.train.Features(feature=feature_dict)
             example = tf.train.Example(features=feature_set)
@@ -78,13 +70,13 @@ def main(outpfx=None):
     """TFRecord generation."""
 
     # Load features and labels
-    sequence = np.load('model1/start_sequence.npy')#[:2**20]
-    geneLength = np.load('model1/start_geneLength.npy')#[:2**20]
-    orfLength = np.load('model1/start_orfLength.npy')#[:2**20]
-    genomeGC = np.load('model1/start_genomeGC.npy')#[:2**20]
-    contigGC = np.load('model1/start_contigGC.npy')#[:2**20]
-    isCoding = np.load('model1/start_isCoding.npy')#[:2**20]
-    isCorrect = np.load('model1/start_isCorrect.npy')#[:2**20]
+    sequence = np.load('model1/start_sequence.npy')[:2**16]
+    geneLength = np.load('model1/start_geneLength.npy')[:2**16]
+    orfLength = np.load('model1/start_orfLength.npy')[:2**16]
+    genomeGC = np.load('model1/start_genomeGC.npy')[:2**16]
+    contigGC = np.load('model1/start_contigGC.npy')[:2**16]
+    isCoding = np.load('model1/start_isCoding.npy')[:2**16]
+    isCorrect = np.load('model1/start_isCorrect.npy')[:2**16]
 
     # Split data into training and testing
     sequence_train, sequence_test = train_test_split(sequence, test_size=0.2, random_state=42)
@@ -94,6 +86,8 @@ def main(outpfx=None):
     contigGC_train, contigGC_test = train_test_split(contigGC, test_size=0.2, random_state=42)
     isCoding_train, isCoding_test = train_test_split(isCoding, test_size=0.2, random_state=42)
     isCorrect_train, isCorrect_test = train_test_split(isCorrect, test_size=0.2, random_state=42)
+    labels_train = np.stack((isCoding_train, isCorrect_train), axis=1)
+    labels_test = np.stack((isCoding_test, isCorrect_test), axis=1)
 
     print(sequence_train.shape)
     print(geneLength_train.shape)
@@ -102,6 +96,7 @@ def main(outpfx=None):
     print(contigGC_train.shape)
     print(isCoding_train.shape)
     print(isCorrect_train.shape)
+    print(labels_train.shape)
 
     if outpfx:
         outpfx += '-'
@@ -112,10 +107,8 @@ def main(outpfx=None):
     test_path = os.path.join(os.getcwd(), test_name)
 
     # Write train and test tfrecord datasets
-    convert_to_tfr(sequence_train, geneLength_train, orfLength_train, genomeGC_train, contigGC_train, isCoding_train, isCorrect_train, train_path)
-    convert_to_tfr(sequence_test, geneLength_test, orfLength_test, genomeGC_test, contigGC_test, isCoding_test, isCorrect_test, test_path)
-    # convert_to_tfr(sequence_train, isCorrect_train, train_path)
-    # convert_to_tfr(sequence_test, isCorrect_test, test_path)
+    convert_to_tfr(sequence_train, geneLength_train, orfLength_train, genomeGC_train, contigGC_train, labels_train, train_path)
+    convert_to_tfr(sequence_test, geneLength_test, orfLength_test, genomeGC_test, contigGC_test, labels_test, test_path)
 
     print('TFRecords generated')
 

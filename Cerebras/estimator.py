@@ -92,7 +92,7 @@ def main(args):
     params['log_frequency'] = args.log_frequency
     params['shuffle_buffer'] = SHUFFLE_BUFFER
     params['dropout'] = DROPOUT
-    params['input_sizes'] = (183, 1, 1, 1, 1, 1, 1)
+    params['input_sizes'] = (183, 1, 1, 1, 1, 2)
     params['cerebras'] = CEREBRAS_ENV
     params['cs_ip'] = args.cs_ip
 

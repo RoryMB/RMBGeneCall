@@ -32,7 +32,7 @@ def get_arguments():
                         ],
                         nargs='+',
                         required=True,
-                        help='execution mode')
+                        help='Execution mode')
 
     parser.add_argument('--cs_ip',
                         default=None,

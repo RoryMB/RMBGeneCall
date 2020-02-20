@@ -27,8 +27,7 @@ def input_fn(data_dir, batch_size, is_training=None, params=None):
             'orfLength': tf.io.FixedLenFeature([data_sz[2]], dtype=tf.float32),
             'genomeGC': tf.io.FixedLenFeature([data_sz[3]], dtype=tf.float32),
             'contigGC': tf.io.FixedLenFeature([data_sz[4]], dtype=tf.float32),
-            'isCoding': tf.io.FixedLenFeature([data_sz[5]], dtype=tf.int64),
-            'isCorrect': tf.io.FixedLenFeature([data_sz[6]], dtype=tf.int64),
+            'labels': tf.io.FixedLenFeature([data_sz[5]], dtype=tf.int64),
         }
 
         record_features = tf.io.parse_single_example(raw_record, feature_map)
@@ -38,11 +37,9 @@ def input_fn(data_dir, batch_size, is_training=None, params=None):
         orfLength = record_features['orfLength']
         genomeGC = record_features['genomeGC']
         contigGC = record_features['contigGC']
-        isCoding = tf.cast(record_features['isCoding'], dtype=tf.float32)
-        isCorrect = tf.cast(record_features['isCorrect'], dtype=tf.float32)
+        labels = tf.cast(record_features['labels'], dtype=tf.float32)
 
-        return {'sequence':sequence, 'geneLength':geneLength, 'orfLength':orfLength, 'genomeGC':genomeGC, 'contigGC':contigGC}, (isCoding, isCorrect)
-        # return (sequence, geneLength, orfLength, genomeGC, contigGC), (isCoding, isCorrect)
+        return {'sequence':sequence, 'geneLength':geneLength, 'orfLength':orfLength, 'genomeGC':genomeGC, 'contigGC':contigGC}, (labels)
 
     return process_record_dataset(dataset, is_training, batch_size, shuffle_buffer, _parse_record_fn, num_epochs=epochs)
 
