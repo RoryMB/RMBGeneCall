@@ -10,23 +10,6 @@ from get_arguments import get_arguments
 from input_fn import input_fn
 from model_fn import model_fn
 
-# Cerebras
-try:
-    import json
-    from cerebras.tf.cs_estimator import CerebrasEstimator as CommonEstimator
-    from cerebras.tf.run_config import CSRunConfig as CommonRunConfig
-    from cerebras.tf.cs_slurm_cluster_resolver import CSSlurmClusterResolver
-    CEREBRAS_ENV = True
-except:
-    print("Cerebras support is not available")
-    CEREBRAS_ENV = False
-    class CommonEstimator(tf.estimator.Estimator):
-        def __init__(self, use_cs=None, **kwargs):
-            super(CommonEstimator, self).__init__(**kwargs)
-    class CommonRunConfig(tf.estimator.RunConfig):
-        def __init__(self, cs_ip=None, **kwargs):
-            super(CommonRunConfig, self).__init__(**kwargs)
-
 def logger(prefix):
     """Initialize TensorFlow logging."""
 
@@ -64,8 +47,7 @@ def main(args):
     params['log_frequency'] = args.log_frequency
     params['shuffle_buffer'] = 1500
 
-    params['cerebras'] = CEREBRAS_ENV
-    params['cs_ip'] = args.cs_ip
+    params['hardware'] = 'GPU'
     os.environ['CUDA_VISIBLE_DEVICES'] = arguments.gpu
 
     save_checkpoints_steps = 1
@@ -73,27 +55,12 @@ def main(args):
     train_steps = 1 # metadata['train_samples'] // params['batch_size'] * params['epochs']
     evaluate_steps = 1 # metadata['val_samples'] // params['batch_size']
 
-    if params['mode'] == 'compile_only' or params['mode'] == 'validate_only':
-        if not CEREBRAS_ENV:
-            tf.compat.v1.logging.error("validate_only and compile_only only available on CS-1")
-            exit()
-
-    if CEREBRAS_ENV and params['mode'] == 'train':
-        if not params['cs_ip']:
-            tf.compat.v1.logging.error("--cs_ip is required when training on CS-1")
-            exit()
-
-        if ':' not in params['cs_ip']:
-            params['cs_ip'] += ':9000'
-
-    config = CommonRunConfig(
-        cs_ip=params['cs_ip'],
+    config = tf.estimator.RunConfig(
         save_checkpoints_steps=save_checkpoints_steps,
         log_step_count_steps=log_step_count_steps,
     )
 
-    estimator = CommonEstimator(
-        use_cs=params['cerebras'],
+    estimator = tf.estimator.Estimator(
         model_fn=model_fn,
         model_dir=params['model_dir'],
         config=config,
@@ -101,22 +68,6 @@ def main(args):
     )
 
     if params['mode'] == 'train':
-        if CEREBRAS_ENV:
-            PORT_BASE = 23111
-            slurm_cluster_resolver = CSSlurmClusterResolver(port_base=PORT_BASE)
-            cluster_spec = slurm_cluster_resolver.cluster_spec()
-            task_type, task_id = slurm_cluster_resolver.get_task_info()
-            os.environ['TF_CONFIG'] = json.dumps({
-                'cluster': cluster_spec.as_dict(),
-                'task': {
-                    'type': task_type,
-                    'index': task_id
-                }
-            })
-
-            os.environ['SEND_BLOCK'] = '16384'
-            os.environ['RECV_BLOCK'] = '16384'
-
         estimator.train(input_fn=input_fn, steps=train_steps)
 
     if params['mode'] == 'evaluate':
@@ -124,9 +75,6 @@ def main(args):
         print('RMBDEBUG global step: %7d'   % evaluate_result['global_step'])
         print('RMBDEBUG accuracy:    %7.2f' % round(evaluate_result['accuracy'] * 100.0, 2))
         print('RMBDEBUG loss:        %7.2f' % round(evaluate_result['loss'], 2))
-
-    if params['mode'] == 'compile_only' or params['mode'] == 'validate_only':
-        estimator.compile(input_fn=input_fn, validate_only=(params['mode']=='validate_only'))
 
 if __name__ == '__main__':
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)

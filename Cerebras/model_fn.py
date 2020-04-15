@@ -2,7 +2,7 @@
 a CS-1 compatible tf.estimator.Estimator object for training.
 """
 
-import estimator_hooks as hooks
+import hooks as hooks
 import tensorflow as tf
 from build_model import build_model
 
