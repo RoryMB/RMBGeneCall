@@ -23,7 +23,7 @@ def get_arguments():
                             'evaluate',
                             'predict',
                             'validate_only',
-                            'compile_only'
+                            'compile_only',
                         ],
                         required=True,
                         help='Execution mode')
@@ -54,11 +54,11 @@ def get_arguments():
 
     parser.add_argument('--cs_ip',
                         default=None,
-                        help='CS-1 IP address, default is None')
+                        help='CS-1 IP address, if applicable')
 
     parser.add_argument('--gpu',
                         default='-1',
                         type=str,
-                        help='Which GPU to use (if not on Cerebras)')
+                        help='Which GPU to use, if applicable')
 
     return parser.parse_args()

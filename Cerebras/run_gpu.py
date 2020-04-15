@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
-"""CS-1 / GPU compatible TensorFlow Estimator."""
+"""GPU Estimator."""
 
 import functools
 import logging
 import os
 import tensorflow as tf
 from get_arguments import get_arguments
-from input_fn import input_fn
+from input_fn import input_fn_1to1 as input_fn
 from model_fn import model_fn
 
 def logger(prefix):
@@ -38,7 +38,7 @@ def main(args):
     params['model_dir'] = args.model_dir
     params['data_dir'] = args.data_dir
 
-    params['input_sizes'] = (183, 1, 1, 1, 1, 2)
+    params['input_sizes'] = (3294, 1) # (183, 1, 1, 1, 1, 2)
     params['dropout'] = 0.4
     params['mode'] = args.mode
     params['epochs'] = args.epochs

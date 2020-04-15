@@ -2,12 +2,16 @@
 a CS-1 compatible tf.estimator.Estimator object for training.
 """
 
-import hooks as hooks
 import tensorflow as tf
-from build_model import build_model
+from hooks import TrainingHook
 
 def model_fn(features, labels, mode, params):
     """Describe the model to the TensorFlow estimator."""
+
+    if params['hardware'] == 'GPU':
+        from build_model import build_model_1to1_gpu as build_model
+    elif params['hardware'] == 'CS-1':
+        from build_model import build_model_1to1_cs1 as build_model
 
     is_training = (mode == tf.estimator.ModeKeys.TRAIN)
     is_evaluate = (mode == tf.estimator.ModeKeys.EVAL)
@@ -19,13 +23,13 @@ def model_fn(features, labels, mode, params):
         predictions = tf.argmax(logits, -1)
 
         tf.compat.v1.train.get_or_create_global_step()
-        loss = tf.compat.v1.keras.backend.sum(tf.compat.v1.keras.losses.sparse_categorical_crossentropy(y_true=labels, y_pred=logits))
+        loss = tf.compat.v1.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
 
         hook_list = []
 
         eval_metric_ops = None
         logging_hook = None
-        if not params['cerebras']:
+        if params['hardware'] == 'GPU':
             accuracy = tf.compat.v1.metrics.accuracy(
                 labels=labels,
                 predictions=predictions,
