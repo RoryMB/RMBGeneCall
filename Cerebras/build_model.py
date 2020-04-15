@@ -1,6 +1,9 @@
 """Build a Keras classification model."""
 
-from tensorflow.keras.layers import Input, Dense, Dropout, Activation, Embedding, Conv1D, Add, Flatten, Reshape, concatenate
+import tensorflow as tf
+from tensorflow.keras.layers import Input, Dense, Activation, Flatten, Reshape
+from tensorflow.keras.layers import Embedding, Dropout, concatenate, Conv1D, Conv2D, Add
+from tensorflow.keras.layers import BatchNormalization, multiply
 from tensorflow.keras.models import Model
 
 def build_model(params, inputs=None):

@@ -3,24 +3,24 @@
 import os
 import tensorflow as tf
 
-def input_fn(data_dir, batch_size, is_training=None, params=None):
+def input_fn(params):
     """Return dataset iterator."""
+
     epochs = params['epochs']
     file_prefix = params['file_prefix']
     shuffle_buffer = params['shuffle_buffer']
     data_sz = params['input_sizes']
 
-    if is_training:
-        partition = 'train'
-    else:
-        partition = 'test'
-
-    file_pattern = os.path.join(data_dir, f'{file_prefix}{partition}*.tfrecords')
+    file_pattern = os.path.join(
+        params['data_dir'],
+        params['file_prefix'] + params['mode'] + '*.tfrecords',
+    )
     dataset = tf.data.Dataset.list_files(file_pattern, shuffle=True)
     dataset = dataset.flat_map(tf.data.TFRecordDataset)
 
     def _parse_record_fn(raw_record):
         """Decode raw TFRecord into feature and label components."""
+
         feature_map = {
             'sequence': tf.io.FixedLenFeature([data_sz[0]], dtype=tf.float32),
             'geneLength': tf.io.FixedLenFeature([data_sz[1]], dtype=tf.float32),
@@ -37,26 +37,33 @@ def input_fn(data_dir, batch_size, is_training=None, params=None):
         orfLength = record_features['orfLength']
         genomeGC = record_features['genomeGC']
         contigGC = record_features['contigGC']
-        labels = tf.cast(record_features['labels'], dtype=tf.float32)
 
-        return {'sequence':sequence, 'geneLength':geneLength, 'orfLength':orfLength, 'genomeGC':genomeGC, 'contigGC':contigGC}, (labels)
+        data = {
+            'sequence':sequence,
+            'geneLength':geneLength,
+            'orfLength':orfLength,
+            'genomeGC':genomeGC,
+            'contigGC':contigGC,
+        }
+        labels = tf.cast(record_features['labels'], dtype=tf.int32)
 
-    return process_record_dataset(dataset, is_training, batch_size, shuffle_buffer, _parse_record_fn, num_epochs=epochs)
+        return data, labels
 
-def process_record_dataset(dataset, is_training, batch_size, shuffle_buffer, parse_record_fn, num_epochs=None):
-    """Given a Dataset with raw records, return an iterator over the records."""
     dataset = dataset.prefetch(buffer_size=batch_size)
 
-    if is_training:
+    if params['mode'] == 'train':
         dataset = dataset.shuffle(buffer_size=shuffle_buffer)
-        dataset = dataset.repeat(num_epochs)
+        dataset = dataset.repeat(count=None)
 
     dataset = dataset.apply(
         tf.data.experimental.map_and_batch(
-            lambda raw_record: parse_record_fn(raw_record),
+            lambda raw_record: _parse_record_fn(raw_record),
             batch_size=batch_size,
             num_parallel_batches=1,
-            drop_remainder=True))
+            drop_remainder=True,
+        )
+    )
 
     dataset = dataset.prefetch(buffer_size=tf.contrib.data.AUTOTUNE)
+
     return dataset

@@ -7,11 +7,6 @@ def get_arguments():
 
     parser = argparse.ArgumentParser("CS-1 evaluation std arguments")
 
-    parser.add_argument('--gpu',
-                        default='-1',
-                        type=str,
-                        help='Which GPU to use (if not on Cerebras)')
-
     parser.add_argument('--model_dir',
                         default='./model_dir',
                         type=str,
@@ -25,18 +20,13 @@ def get_arguments():
     parser.add_argument('--mode',
                         choices=[
                             'train',
-                            'eval',
+                            'evaluate',
                             'predict',
-                            'validate_only',        # CS-1 only
-                            'compile_only'          # CS-1 only
+                            'validate_only',
+                            'compile_only'
                         ],
-                        nargs='+',
                         required=True,
                         help='Execution mode')
-
-    parser.add_argument('--cs_ip',
-                        default=None,
-                        help='CS-1 IP address, default is None')
 
     parser.add_argument('--epochs',
                         default=1,
@@ -61,5 +51,14 @@ def get_arguments():
                         default=1000,
                         type=int,
                         help='Training run summarization interval')
+
+    parser.add_argument('--cs_ip',
+                        default=None,
+                        help='CS-1 IP address, default is None')
+
+    parser.add_argument('--gpu',
+                        default='-1',
+                        type=str,
+                        help='Which GPU to use (if not on Cerebras)')
 
     return parser.parse_args()

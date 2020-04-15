@@ -12,6 +12,7 @@ from model_fn import model_fn
 
 # Cerebras
 try:
+    import json
     from cerebras.tf.cs_estimator import CerebrasEstimator as CommonEstimator
     from cerebras.tf.run_config import CSRunConfig as CommonRunConfig
     from cerebras.tf.cs_slurm_cluster_resolver import CSSlurmClusterResolver
@@ -26,118 +27,80 @@ except:
         def __init__(self, cs_ip=None, **kwargs):
             super(CommonRunConfig, self).__init__(**kwargs)
 
-def validate_arguments(mode_list, is_cerebras, params_dict):
-    """Estimator script argument/environment validation """
-    if 'validate_only' in mode_list or 'compile_only' in mode_list:
-        if not is_cerebras:
-            tf.compat.v1.logging.error("validate_only and compile_only not available")
-            return False
-
-    if is_cerebras and 'train' in mode_list:
-        if not params['cs_ip']:
-            tf.compat.v1.logging.error("--cs_ip is required when training on the CS-1")
-            return False
-
-        if ':' not in params['cs_ip']:
-            params['cs_ip'] += ':9000'              # why?
-
-    return True
-
-DROPOUT = 0.40
-SHUFFLE_BUFFER = 1500
-
 def logger(prefix):
     """Initialize TensorFlow logging."""
 
     logging.getLogger().setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)-2s - %(levelname)-2s - %(message)s', "%Y-%m-%d %H:%M:%S")
+    formatter = logging.Formatter('%(asctime)-2s - %(levelname)-2s - %(message)s', '%Y-%m-%d %H:%M:%S')
 
     # Log to file
     fh = logging.FileHandler(prefix + 'estimator.log')
     fh.setFormatter(formatter)
     fh.setLevel(logging.INFO)
 
-    # Log to terminal
-    ch = logging.StreamHandler()
-    ch.setFormatter(formatter)
-    ch.setLevel(logging.INFO)
-
     logging.getLogger().addHandler(fh)
-    # logging.getLogger().addHandler(ch)
     return logging.getLogger(__name__)
-
-def qualify_path(directory):
-    """Generate fully qualified path name from input file name."""
-
-    return os.path.abspath(directory)
 
 def main(args):
     """Estimator main function."""
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = arguments.gpu
-
     file_prefix = args.inpfx
     if file_prefix:
         file_prefix = file_prefix + '-'
+
     logger(file_prefix)
 
     params = {}
-    params['epochs'] = args.epochs
-    params['data_dir'] = qualify_path(args.data_dir)
-    params['model_dir'] = qualify_path(args.model_dir)
-    params['batch_size'] = args.batch_size
     params['file_prefix'] = file_prefix
+    params['model_dir'] = args.model_dir
+    params['data_dir'] = args.data_dir
+
+    params['input_sizes'] = (183, 1, 1, 1, 1, 2)
+    params['dropout'] = 0.4
     params['mode'] = args.mode
+    params['epochs'] = args.epochs
+    params['batch_size'] = args.batch_size
     params['learning_rate'] = args.learning_rate
     params['log_frequency'] = args.log_frequency
-    params['shuffle_buffer'] = SHUFFLE_BUFFER
-    params['dropout'] = DROPOUT
-    params['input_sizes'] = (183, 1, 1, 1, 1, 2)
+    params['shuffle_buffer'] = 1500
+
     params['cerebras'] = CEREBRAS_ENV
     params['cs_ip'] = args.cs_ip
+    os.environ['CUDA_VISIBLE_DEVICES'] = arguments.gpu
 
-    epochs = params['epochs']
-    data_dir = params['data_dir']
-    model_dir = params['model_dir']
-    batch_size = params['batch_size']
+    save_checkpoints_steps = 1
+    log_step_count_steps = 1
+    train_steps = 1 # metadata['train_samples'] // params['batch_size'] * params['epochs']
+    evaluate_steps = 1 # metadata['val_samples'] // params['batch_size']
 
-    print("*" * 130)
-    print(f"Batch size is {batch_size}")
-    print(f"Number of epochs: {epochs}")
-    print(f"Model directory: {model_dir}")
-    print(f"Data directory: {data_dir}")
-    print("params:", params)
-    print("args:", args)
-    print("*" * 130)
+    if params['mode'] == 'compile_only' or params['mode'] == 'validate_only':
+        if not CEREBRAS_ENV:
+            tf.compat.v1.logging.error("validate_only and compile_only only available on CS-1")
+            exit()
 
-    if not validate_arguments(args.mode, CEREBRAS_ENV, params):
-        print("Unable to continue, correct arguments or environment")
-        return
+    if CEREBRAS_ENV and params['mode'] == 'train':
+        if not params['cs_ip']:
+            tf.compat.v1.logging.error("--cs_ip is required when training on CS-1")
+            exit()
 
-    # Build estimator
+        if ':' not in params['cs_ip']:
+            params['cs_ip'] += ':9000'
 
     config = CommonRunConfig(
         cs_ip=params['cs_ip'],
-        # save_checkpoints_steps=train_steps,         # is this appropriate?
-        # log_step_count_steps=train_steps            # is this appropriate?
+        save_checkpoints_steps=save_checkpoints_steps,
+        log_step_count_steps=log_step_count_steps,
     )
 
-    model = CommonEstimator(
+    estimator = CommonEstimator(
         use_cs=params['cerebras'],
         model_fn=model_fn,
-        model_dir=model_dir,
+        model_dir=params['model_dir'],
         config=config,
         params=params
     )
 
-    # Predict
-    if 'predict' in args.mode:
-        errstr = 'PREDICT mode not yet implemented'
-        tf.compat.v1.logging.error(errstr)
-        raise NotImplementedError(errstr)
-
-    # Train
-    if 'train' in args.mode:
+    if params['mode'] == 'train':
         if CEREBRAS_ENV:
             PORT_BASE = 23111
             slurm_cluster_resolver = CSSlurmClusterResolver(port_base=PORT_BASE)
@@ -151,33 +114,21 @@ def main(args):
                 }
             })
 
-            os.environ['SEND_BLOCK'] = '16384'      # what do these stmts do
+            os.environ['SEND_BLOCK'] = '16384'
             os.environ['RECV_BLOCK'] = '16384'
 
-        print("\nTraining...")
-        _input_fn = lambda: input_fn(data_dir, batch_size, is_training=True, params=params)
-        model.train(input_fn=_input_fn)
-        print("Training complete")
+        estimator.train(input_fn=input_fn, steps=train_steps)
 
-    # Evaluate
-    if 'eval' in args.mode:
-        print("\nEvaluating...")
-        _eval_input_fn = lambda: input_fn(data_dir, batch_size, is_training=False, params=params)
-        eval_result = model.evaluate(input_fn=_eval_input_fn)
+    if params['mode'] == 'evaluate':
+        evaluate_result = estimator.evaluate(input_fn=input_fn, steps=evaluate_steps)
+        print('RMBDEBUG global step: %7d'   % evaluate_result['global_step'])
+        print('RMBDEBUG accuracy:    %7.2f' % round(evaluate_result['accuracy'] * 100.0, 2))
+        print('RMBDEBUG loss:        %7.2f' % round(evaluate_result['loss'], 2))
 
-        print("global step:%7d" % eval_result['global_step'])
-        print("accuracy:   %7.2f" % round(eval_result['accuracy'] * 100.0, 2))
-        print("loss:       %7.2f" % round(eval_result['loss'], 2))
-        print("Evaluation complete")
-
-    if 'compile_only' in args.mode or 'validate_only' in args.mode:
-        print("CS-1 preprocessing...")
-        validate_only = 'validate_only' in args.mode
-        # est_input_fn = lambda: input_fn(data_dir, batch_size, is_training=False, params=params)
-        est_input_fn = functools.partial(input_fn, data_dir, batch_size, is_training=False, params=params)
-        model.compile(est_input_fn, validate_only=validate_only)
-        print("CS-1 preprocessing complete")
+    if params['mode'] == 'compile_only' or params['mode'] == 'validate_only':
+        estimator.compile(input_fn=input_fn, validate_only=(params['mode']=='validate_only'))
 
 if __name__ == '__main__':
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
     arguments = get_arguments()
     main(arguments)
