@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""GPU Estimator."""
+"""IPU Estimator."""
 
 import functools
 import logging
@@ -9,6 +9,8 @@ import tensorflow as tf
 from get_arguments import get_arguments
 from input_fn import input_fn_1to1 as input_fn
 from model_fn import model_fn
+
+from tensorflow.python import ipu
 
 def logger(prefix):
     """Initialize TensorFlow logging."""
@@ -38,7 +40,7 @@ def main(args):
     params['model_dir'] = args.model_dir
     params['data_dir'] = args.data_dir
 
-    params['input_sizes'] = (3294, 1) # (183, 1, 1, 1, 1, 2)
+    params['input_sizes'] = (3294, 1) # (3294, 1, 1, 1, 1, 2)
     params['dropout'] = 0.4
     params['mode'] = args.mode
     params['epochs'] = args.epochs
@@ -47,20 +49,31 @@ def main(args):
     params['log_frequency'] = args.log_frequency
     params['shuffle_buffer'] = 1500
 
-    params['hardware'] = 'GPU'
-    os.environ['CUDA_VISIBLE_DEVICES'] = arguments.gpu
+    params['hardware'] = 'IPU'
+    params['num_ipus'] = 1
+    params['batches_per_step'] = 1
+    params['partition'] = 'train'
 
-    save_checkpoints_steps = 1
     log_step_count_steps = 1
+    save_summary_steps = 1
     train_steps = 1 # metadata['train_samples'] // params['batch_size'] * params['epochs']
     evaluate_steps = 1 # metadata['val_samples'] // params['batch_size']
 
-    config = tf.estimator.RunConfig(
-        save_checkpoints_steps=save_checkpoints_steps,
-        log_step_count_steps=log_step_count_steps,
+    ipu_options = ipu.utils.create_ipu_config()
+    ipu.utils.auto_select_ipus(ipu_options, num_ipus=params['num_ipus'])
+
+    ipu_run_config = ipu.ipu_run_config.IPURunConfig(
+        iterations_per_loop=params['batches_per_step'],
+        ipu_options=ipu_options,
     )
 
-    estimator = tf.estimator.Estimator(
+    config = ipu.ipu_run_config.RunConfig(
+        ipu_run_config=ipu_run_config,
+        log_step_count_steps=log_step_count_steps,
+        save_summary_steps=save_summary_steps,
+    )
+
+    estimator = ipu.ipu_estimator.IPUEstimator(
         model_fn=model_fn,
         model_dir=params['model_dir'],
         config=config,
@@ -68,7 +81,7 @@ def main(args):
     )
 
     if params['mode'] == 'train':
-        estimator.train(input_fn=input_fn, steps=train_steps)
+        estimator.train(input_fn=input_fn, max_steps=train_steps)
 
     if params['mode'] == 'evaluate':
         evaluate_result = estimator.evaluate(input_fn=input_fn, steps=evaluate_steps)

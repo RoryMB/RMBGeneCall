@@ -12,6 +12,8 @@ def model_fn(features, labels, mode, params):
         from build_model import build_model_1to1_gpu as build_model
     elif params['hardware'] == 'CS-1':
         from build_model import build_model_1to1_cs1 as build_model
+    elif params['hardware'] == 'IPU':
+        from build_model import build_model_1to1_ipu as build_model
 
     is_training = (mode == tf.estimator.ModeKeys.TRAIN)
     is_evaluate = (mode == tf.estimator.ModeKeys.EVAL)
@@ -53,10 +55,15 @@ def model_fn(features, labels, mode, params):
             optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=params['learning_rate'])
             update_ops = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.UPDATE_OPS)
             with tf.control_dependencies(update_ops):
-                train_op = optimizer.minimize(
-                    loss,
-                    global_step=tf.compat.v1.train.get_global_step(),
-                )
+                if params['hardware'] == 'IPU':
+                    train_op = optimizer.minimize(
+                        loss,
+                    )
+                else:
+                    train_op = optimizer.minimize(
+                        loss,
+                        global_step=tf.compat.v1.train.get_global_step(),
+                    )
 
         estimator = tf.estimator.EstimatorSpec(
             mode=mode,
